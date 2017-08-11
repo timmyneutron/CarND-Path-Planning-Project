@@ -8,6 +8,7 @@
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
+#include "spline.h"
 
 using namespace std;
 
@@ -159,6 +160,22 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 
 }
 
+vector<double> global2car(double car_x, double car_y, double psi, double px, double py)
+{
+    double x_car_frame = (px - car_x) * cos(psi) + (py - car_y) * sin(psi);
+    double y_car_frame = (px - car_x) * -sin(psi) + (py - car_y) * cos(psi);
+
+    return {x_car_frame, y_car_frame};
+}
+
+vector<double> car2global(double car_x, double car_y, double psi, double px, double py)
+{
+  double x_global = px * cos(psi) - py * sin(psi) + car_x;
+  double y_global = px * sin(psi) + py * cos(psi) + car_y;
+
+  return {x_global, y_global};
+}
+
 int main() {
   uWS::Hub h;
 
@@ -238,8 +255,82 @@ int main() {
           	vector<double> next_x_vals;
           	vector<double> next_y_vals;
 
+            car_yaw = deg2rad(car_yaw);
+            int path_size = previous_path_x.size();
+            double ref_v = 49 * 0.447;
+            double dt = 0.02;
+            double ref_yaw;
 
-          	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
+            for (int i = 0; i < path_size; ++i)
+            {
+              next_x_vals.push_back(previous_path_x[i]);
+              next_y_vals.push_back(previous_path_y[i]);
+            }
+
+            vector<double> spline_pts_x;
+            vector<double> spline_pts_y;
+
+            if (path_size < 2)
+            {
+              spline_pts_x.push_back(car_x);
+              spline_pts_y.push_back(car_y);
+
+              spline_pts_x.push_back(car_x + ref_v * cos(car_yaw) * dt);
+              spline_pts_y.push_back(car_y + ref_v * sin(car_yaw) * dt);
+
+              ref_yaw = car_yaw;
+            }
+            else
+            {
+              double x0 = previous_path_x[path_size-2];
+              double x1 = previous_path_x[path_size-1];
+
+              double y0 = previous_path_y[path_size-2];
+              double y1 = previous_path_y[path_size-1];
+
+              spline_pts_x.push_back(x0);
+              spline_pts_x.push_back(x1);
+
+              spline_pts_y.push_back(y0);
+              spline_pts_y.push_back(y1);
+
+              double x_diff = x1 - x0;
+              double y_diff = y1 - y0;
+
+              ref_yaw = atan2(y_diff, x_diff);
+            }
+
+            for (int i = 1; i < 4; ++i)
+            {
+              double next_s = car_s + 50 * i;
+              vector<double> wp_xy = getXY(next_s, 6.0, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              spline_pts_x.push_back(wp_xy[0]);
+              spline_pts_y.push_back(wp_xy[1]);
+            }
+
+            vector<double> xy_car, spline_pts_x_car, spline_pts_y_car;
+
+            for (int i = 0; i < 5; ++i)
+            {
+              xy_car = global2car(spline_pts_x[1], spline_pts_y[1], ref_yaw, spline_pts_x[i], spline_pts_y[i]);
+              spline_pts_x_car.push_back(xy_car[0]);
+              spline_pts_y_car.push_back(xy_car[1]);
+            }
+
+            tk::spline s;
+            s.set_points(spline_pts_x_car, spline_pts_y_car);
+
+            for (int i = 1; i < 51 - path_size; ++i)
+            {
+             double next_x_car = ref_v * dt * i;
+             double next_y_car = s(next_x_car);
+
+             vector<double> xy_global = car2global(spline_pts_x[1], spline_pts_y[1], ref_yaw, next_x_car, next_y_car);
+
+             next_x_vals.push_back(xy_global[0]);
+             next_y_vals.push_back(xy_global[1]);
+            }
+
           	msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 
@@ -290,83 +381,3 @@ int main() {
   }
   h.run();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
