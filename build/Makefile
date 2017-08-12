@@ -123,6 +123,33 @@ path_planning/fast:
 	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/build
 .PHONY : path_planning/fast
 
+src/helperFunctions.o: src/helperFunctions.cpp.o
+
+.PHONY : src/helperFunctions.o
+
+# target to build an object file
+src/helperFunctions.cpp.o:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/src/helperFunctions.cpp.o
+.PHONY : src/helperFunctions.cpp.o
+
+src/helperFunctions.i: src/helperFunctions.cpp.i
+
+.PHONY : src/helperFunctions.i
+
+# target to preprocess a source file
+src/helperFunctions.cpp.i:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/src/helperFunctions.cpp.i
+.PHONY : src/helperFunctions.cpp.i
+
+src/helperFunctions.s: src/helperFunctions.cpp.s
+
+.PHONY : src/helperFunctions.s
+
+# target to generate assembly for a file
+src/helperFunctions.cpp.s:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/src/helperFunctions.cpp.s
+.PHONY : src/helperFunctions.cpp.s
+
 src/main.o: src/main.cpp.o
 
 .PHONY : src/main.o
@@ -159,6 +186,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... path_planning"
+	@echo "... src/helperFunctions.o"
+	@echo "... src/helperFunctions.i"
+	@echo "... src/helperFunctions.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

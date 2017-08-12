@@ -772,6 +772,18 @@ lapacke_mangling.h
 
 /Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/plugins/MatrixCwiseUnaryOps.h
 
+/Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/helperFunctions.cpp
+helperFunctions.h
+/Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/helperFunctions.h
+vector
+-
+math.h
+-
+
+/Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/helperFunctions.h
+vector
+-
+
 /Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/json.hpp
 algorithm
 -
@@ -851,6 +863,8 @@ json.hpp
 /Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/json.hpp
 spline.h
 /Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/spline.h
+helperFunctions.h
+/Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/helperFunctions.h
 
 /Users/timmyneutron/Desktop/CarND-Path-Planning-Project/src/spline.h
 cstdio
