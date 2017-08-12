@@ -1,5 +1,4 @@
 #include "helperFunctions.h"
-#include <vector>
 #include <math.h>
 
 double HelperFunctions::deg2rad(double deg) { return deg * M_PI / 180; }
