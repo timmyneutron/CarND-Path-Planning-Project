@@ -67,13 +67,15 @@ int main() {
   	map_waypoints_dx.push_back(d_x);
   	map_waypoints_dy.push_back(d_y);
   }
-  
+
   double max_s = 6945.554;
   double ref_v = 0;
   int lane = 1;
-  bool changing_lanes = false;
+  // bool changing_lanes = false;
+  double dt = 0.02;
+  double cruising_v = 45 * 0.447;
 
-  h.onMessage([&changing_lanes,&lane,&ref_v,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&cruising_v,&dt,&lane,&ref_v,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -117,54 +119,27 @@ int main() {
           	vector<double> next_x_vals;
           	vector<double> next_y_vals;
 
+            // convert yaw angle to radians
             car_yaw = hf::deg2rad(car_yaw);
-            int path_size = previous_path_x.size();
-            double dt = 0.02;
-            double ref_yaw;
 
+            // find number of points in previous path
+            int path_size = previous_path_x.size();
+
+            // push previous path points onto next path
             for (int i = 0; i < path_size; ++i)
             {
               next_x_vals.push_back(previous_path_x[i]);
               next_y_vals.push_back(previous_path_y[i]);
             }
 
-            vector<double> spline_pts_x;
-            vector<double> spline_pts_y;
-
-            if (path_size < 2)
-            {
-              spline_pts_x.push_back(car_x);
-              spline_pts_y.push_back(car_y);
-
-              spline_pts_x.push_back(car_x + cos(car_yaw) * dt);
-              spline_pts_y.push_back(car_y + sin(car_yaw) * dt);
-
-              ref_yaw = car_yaw;
-            }
-            else
-            {
-              double x0 = previous_path_x[path_size-2];
-              double x1 = previous_path_x[path_size-1];
-
-              double y0 = previous_path_y[path_size-2];
-              double y1 = previous_path_y[path_size-1];
-
-              spline_pts_x.push_back(x0);
-              spline_pts_x.push_back(x1);
-
-              spline_pts_y.push_back(y0);
-              spline_pts_y.push_back(y1);
-
-              double x_diff = x1 - x0;
-              double y_diff = y1 - y0;
-
-              ref_yaw = atan2(y_diff, x_diff);
-            }
-
+            // check to see if the car is too close to the car ahead of it,
+            // and if the lanes to the left and right of it are clear
             bool too_close = false;
             bool right_clear = true;
             bool left_clear = true;
 
+            // since the lanes are number 0, 1, 2, any other lane numbers
+            // are off the road
             if (lane - 1 < 0)
             {
               left_clear  = false;
@@ -174,29 +149,39 @@ int main() {
               right_clear = false;
             }
 
+            // Define the d value for the lane we want the car to be in
+            double target_d = 2.0 + lane * 4.0;
+
+            // loop through all cars, get their s and d coordinates,
+            // and check to see if there is a car ahead and too close,
+            // and check for cars to the right and left
             for (int i = 0; i < num_cars; ++i)
             {
               double next_car_s = sensor_fusion[i][5];
               double next_car_d = sensor_fusion[i][6];
               double s_diff = next_car_s - car_s;
 
-              if (next_car_d > car_d - 2 && next_car_d < car_d + 2 && s_diff > 0 && s_diff < 30)
+              if (next_car_d > target_d - 2 && next_car_d < target_d + 2 && s_diff > 0 && s_diff < 30)
               {
                 too_close = true;
               }
 
-              if (next_car_d > 4.0 * (lane + 1) && next_car_d <  4.0 * (lane + 2) && fabs(s_diff) < 30)
+              if (next_car_d > 4.0 * (lane + 1) && next_car_d < 4.0 * (lane + 2) && (s_diff < 30 && s_diff > -10))
               {
                 right_clear = false;
               }
 
-              if (next_car_d > 4.0 * (lane - 1) && next_car_d <  4.0 * lane && fabs(s_diff) < 30)
+              if (next_car_d > 4.0 * (lane - 1) && next_car_d < 4.0 * lane && (s_diff < 30 && s_diff > -10))
               {
                 left_clear = false;
               }
             }
 
-            if (too_close && !changing_lanes)
+            // If there's a car too close ahead, and one of the other lanes
+            // is clear, and the car isn't already in the process of switching
+            // lanes, then tell the car to switch lanes. If the car can't
+            // switch lanes, tell it to slow down.
+            if (too_close)
             {
               if (right_clear)
               {
@@ -211,25 +196,74 @@ int main() {
                 ref_v -= 2 * dt;
               }
             }
-            else if (ref_v < 45.0 * 0.447)
+            // Else, if the road ahead is clear and the car is going less
+            // than the desired cruising speed, tell the car to speed up.
+            else if (ref_v < cruising_v)
             {
               ref_v += 5 * dt;
             }
 
-            double target_d = 2.0 + lane * 4.0;
-            double ds_wp;
+            // Define the default distance for the other spline waypoints
+            double ds_wp = 30;
 
-            if (fabs(car_d - target_d > 2.0))
+            // If the car is more than 2 m away from it's target d value,
+            // then it is in the process of changing lanes, so set the
+            // flag for changing lanes and increase the distance for
+            // the other spline waypoints (so as to not exceed max
+            // acceleration on when switching lanes
+            if (fabs(car_d - target_d) > 2.0)
             {
-              changing_lanes = true;
-              ds_wp = 100;
+              // changing_lanes = true;
+              ds_wp = 60;
             }
+            // else
+            // {
+            //   changing_lanes = false;
+            // }
+
+            // Create a spline for the car to follow.
+
+            // Ff the previous path size has fewer than 2 points, then use the
+            // car's position and a point directly behind it as the first two
+            // points on the spline (to give the spline the correct slope
+            // at the beginning).
+            vector<double> spline_pts_x;
+            vector<double> spline_pts_y;
+            double ref_yaw;
+
+            if (path_size < 2)
+            {
+              spline_pts_x.push_back(car_x - cos(car_yaw) * dt);
+              spline_pts_y.push_back(car_y - sin(car_yaw) * dt);
+
+              spline_pts_x.push_back(car_x);
+              spline_pts_y.push_back(car_y);
+
+              // Set the reference yaw to the car's yaw angle.
+              ref_yaw = car_yaw;
+            }
+
+            // If the previous path has at least 2 points, then use those
+            // points as the first two points on the spline.
             else
             {
-              changing_lanes = false;
-              ds_wp = 30;
+              double x0 = previous_path_x[path_size-2];
+              double x1 = previous_path_x[path_size-1];
+
+              double y0 = previous_path_y[path_size-2];
+              double y1 = previous_path_y[path_size-1];
+
+              spline_pts_x.push_back(x0);
+              spline_pts_x.push_back(x1);
+
+              spline_pts_y.push_back(y0);
+              spline_pts_y.push_back(y1);
+
+              // Set the reference yaw to the yaw angle between those two points
+              ref_yaw = atan2(y1 - y0, x1 - x0);
             }
 
+            // Add spline waypoints down the road, in the desired lane
             for (int i = 1; i < 4; ++i)
             {
               double next_s = car_s + ds_wp * i;
@@ -238,6 +272,9 @@ int main() {
               spline_pts_y.push_back(wp_xy[1]);
             }
 
+            // Since the y is not a function of x in the global frame,
+            // convert spline x,y points into the "car" frame, using
+            // the state the car will be in at the end of the previous path
             vector<double> xy_car, spline_pts_x_car, spline_pts_y_car;
 
             for (int i = 0; i < 5; ++i)
@@ -247,20 +284,27 @@ int main() {
               spline_pts_y_car.push_back(xy_car[1]);
             }
 
+            // Set the spline.
             tk::spline s;
             s.set_points(spline_pts_x_car, spline_pts_y_car);
 
+            // Add points on the spline to the end of the path by
+            // incrementing x and finding the spline value for those
+            // values of x.
             for (int i = 1; i < 51 - path_size; ++i)
             {
              double next_x_car = ref_v * dt * i;
              double next_y_car = s(next_x_car);
 
+             // Convert the x,y values back to the global frame
              vector<double> xy_global = hf::car2global(spline_pts_x[1], spline_pts_y[1], ref_yaw, next_x_car, next_y_car);
 
+             // Add the new points onto the new paths.
              next_x_vals.push_back(xy_global[0]);
              next_y_vals.push_back(xy_global[1]);
             }
 
+            // Send the new paths to the sim.
           	msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 
