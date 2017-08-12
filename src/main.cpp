@@ -71,7 +71,6 @@ int main() {
   double max_s = 6945.554;
   double ref_v = 0;
   int lane = 1;
-  // bool changing_lanes = false;
   double dt = 0.02;
   double cruising_v = 45 * 0.447;
 
@@ -207,23 +206,17 @@ int main() {
             double ds_wp = 30;
 
             // If the car is more than 2 m away from it's target d value,
-            // then it is in the process of changing lanes, so set the
-            // flag for changing lanes and increase the distance for
-            // the other spline waypoints (so as to not exceed max
-            // acceleration on when switching lanes
+            // then it is in the process of changing lanes, so increase the
+            // distance for the other spline waypoints (so as to not exceed max
+            // acceleration when switching lanes.
             if (fabs(car_d - target_d) > 2.0)
             {
-              // changing_lanes = true;
               ds_wp = 60;
             }
-            // else
-            // {
-            //   changing_lanes = false;
-            // }
 
             // Create a spline for the car to follow.
 
-            // Ff the previous path size has fewer than 2 points, then use the
+            // If the previous path size has fewer than 2 points, then use the
             // car's position and a point directly behind it as the first two
             // points on the spline (to give the spline the correct slope
             // at the beginning).
@@ -291,7 +284,7 @@ int main() {
             // Add points on the spline to the end of the path by
             // incrementing x and finding the spline value for those
             // values of x.
-            for (int i = 1; i < 51 - path_size; ++i)
+            for (int i = 1; i < 20 - path_size; ++i)
             {
              double next_x_car = ref_v * dt * i;
              double next_y_car = s(next_x_car);
