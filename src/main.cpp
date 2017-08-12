@@ -213,13 +213,18 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  double ref_v = 0;
+  int lane = 1;
+  bool changing_lanes = false;
+
+  h.onMessage([&changing_lanes,&lane,&ref_v,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     //auto sdata = string(data).substr(0, length);
     //cout << sdata << endl;
+
     if (length && length > 2 && data[0] == '4' && data[1] == '2') {
 
       auto s = hasData(data);
@@ -249,6 +254,7 @@ int main() {
 
           	// Sensor Fusion Data, a list of all other cars on the same side of the road.
           	auto sensor_fusion = j[1]["sensor_fusion"];
+            int num_cars = sensor_fusion.size();
 
           	json msgJson;
 
@@ -257,7 +263,6 @@ int main() {
 
             car_yaw = deg2rad(car_yaw);
             int path_size = previous_path_x.size();
-            double ref_v = 49 * 0.447;
             double dt = 0.02;
             double ref_yaw;
 
@@ -275,8 +280,8 @@ int main() {
               spline_pts_x.push_back(car_x);
               spline_pts_y.push_back(car_y);
 
-              spline_pts_x.push_back(car_x + ref_v * cos(car_yaw) * dt);
-              spline_pts_y.push_back(car_y + ref_v * sin(car_yaw) * dt);
+              spline_pts_x.push_back(car_x + cos(car_yaw) * dt);
+              spline_pts_y.push_back(car_y + sin(car_yaw) * dt);
 
               ref_yaw = car_yaw;
             }
@@ -300,10 +305,79 @@ int main() {
               ref_yaw = atan2(y_diff, x_diff);
             }
 
+            bool too_close = false;
+            bool right_clear = true;
+            bool left_clear = true;
+
+            if (lane - 1 < 0)
+            {
+              left_clear  = false;
+            }
+            else if (lane + 1 > 2)
+            {
+              right_clear = false;
+            }
+
+            for (int i = 0; i < num_cars; ++i)
+            {
+              double next_car_s = sensor_fusion[i][5];
+              double next_car_d = sensor_fusion[i][6];
+              double s_diff = next_car_s - car_s;
+
+              if (next_car_d > car_d - 2 && next_car_d < car_d + 2 && s_diff > 0 && s_diff < 30)
+              {
+                too_close = true;
+              }
+
+              if (next_car_d > 4.0 * (lane + 1) && next_car_d <  4.0 * (lane + 2) && fabs(s_diff) < 30)
+              {
+                right_clear = false;
+              }
+
+              if (next_car_d > 4.0 * (lane - 1) && next_car_d <  4.0 * lane && fabs(s_diff) < 30)
+              {
+                left_clear = false;
+              }
+            }
+
+            if (too_close && !changing_lanes)
+            {
+              if (right_clear)
+              {
+                lane += 1;
+              }
+              else if (left_clear)
+              {
+                lane -= 1;
+              }
+              else
+              {
+                ref_v -= 2 * dt;
+              }
+            }
+            else if (ref_v < 45.0 * 0.447)
+            {
+              ref_v += 5 * dt;
+            }
+
+            double target_d = 2.0 + lane * 4.0;
+            double ds_wp;
+
+            if (fabs(car_d - target_d > 2.0))
+            {
+              changing_lanes = true;
+              ds_wp = 100;
+            }
+            else
+            {
+              changing_lanes = false;
+              ds_wp = 30;
+            }
+
             for (int i = 1; i < 4; ++i)
             {
-              double next_s = car_s + 50 * i;
-              vector<double> wp_xy = getXY(next_s, 6.0, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              double next_s = car_s + ds_wp * i;
+              vector<double> wp_xy = getXY(next_s, target_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
               spline_pts_x.push_back(wp_xy[0]);
               spline_pts_y.push_back(wp_xy[1]);
             }
