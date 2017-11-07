@@ -3,7 +3,7 @@
 # Udacity Self-Driving Car Nanodegree: Term 3
 # Project #1: Path Planning
 
-![] (https://raw.githubusercontent.com/timmyneutron/CarND-Path-Planning-Project/master/path_planning_project_screenshot.jpg)
+![](https://raw.githubusercontent.com/timmyneutron/CarND-Path-Planning-Project/master/path_planning_project_screenshot.jpg)
 
 ## Introduction
 This is a project for Udacity's Self-Driving Car Nanodegree. It uses path planning algorithms to drive a simulated car along a highway, following lanes, avoiding collisions, obeying the speed limit, and safely passing other cars.
