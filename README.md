@@ -19,6 +19,12 @@ Concepts explored in this project:
 ## Viewing the Project
 To watch a video of the controller in action, click [here](https://www.youtube.com/watch?v=2sHYJWjG5rY).
 
+To build and run the project, follow the instructions [here](https://github.com/udacity/CarND-Path-Planning-Project) to download the simulator and necessary dependencies. Then navigate to the `build` directory and execute:
+
+```sh
+$ ./path_planning
+```
+
 Source code is located in the `src` folder.
 
 ## Write-Up
